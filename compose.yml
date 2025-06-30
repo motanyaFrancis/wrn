@@ -1,0 +1,167 @@
+services:
+  web:
+    build:
+      context: ./
+      dockerfile: Dockerfile 
+    container_name: wrn
+    command: gunicorn api.wsgi:application --workers=2 --bind 0.0.0.0:8000 --timeout 600
+    volumes:
+      - ./static:/usr/src/wrn/static
+      - static_volume:/usr/src/wrn/staticfiles
+      - media_volume:/usr/src/wrn/mediafiles
+    expose:
+      - 8000
+    env_file:
+      - ./.env
+    depends_on:
+      - db 
+    restart: always
+
+  web2:
+    build:
+      context: ./
+      dockerfile: Dockerfile 
+    container_name: wrn2
+    command: gunicorn api.wsgi:application --workers=2 --bind 0.0.0.0:8000 --timeout 600
+    volumes:
+      - ./static:/usr/src/wrn/static
+      - static_volume:/usr/src/wrn/staticfiles
+      - media_volume:/usr/src/wrn/mediafiles
+    expose:
+      - 8000
+    env_file:
+      - ./.env
+    depends_on:
+      - db 
+    restart: always
+
+  db:
+    image: postgres:17.0-alpine
+    restart: always
+    container_name: backendapi-db
+    ports:
+      - 5433:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - ./.env
+
+  nginx:
+    build: ./nginx
+    container_name: backendapi-nginx
+    volumes:
+      - static_volume:/usr/src/wrn/staticfiles
+      - media_volume:/usr/src/wrn/mediafiles
+    ports:
+      - 8000:80
+      - 8004:81
+    depends_on:
+      - web
+      - web2
+    restart: always
+
+  pgbackups:
+    container_name: Backend-Backup
+    image: prodrigestivill/postgres-backup-local
+    restart: always
+    volumes:
+      - ./backup:/backups
+    links:
+      - db:db
+    depends_on:
+      - db
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_EXTRA_OPTS=-Z9 --schema=public --blobs
+      - SCHEDULE=@every 24h00m00s
+      - BACKUP_KEEP_DAYS=7
+      - BACKUP_KEEP_WEEKS=4
+      - BACKUP_KEEP_MONTHS=6
+      - HEALTHCHECK_PORT=81
+
+  redis:
+    image: redis:latest
+    command: redis-server --appendonly yes --replica-read-only no
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - backend_redis:/data
+
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    restart: always
+    env_file:
+      - ./.env
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  monitor:
+    container_name: "monitor_celery_tasks"
+    build:
+      context: ./
+      dockerfile: Dockerfile 
+    image: django_celery_example_celery_flower
+    command: celery -A api flower --basic-auth=${FLOWER_USER}:${FLOWER_PASSWORD} --port=5555
+    restart: always
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env
+    ports:
+      - 5555:5555
+    depends_on:
+      - redis
+      - web
+
+  celery:
+    container_name: "celery"
+    restart: always
+    build:
+      context: ./
+      dockerfile: Dockerfile 
+    command: celery -A apo worker -l INFO -c 2
+    volumes:
+      - ./:/code
+    depends_on:
+      - web
+      - redis
+    env_file:
+      - ./.env
+
+  celery_beat:
+    container_name: "celery_beat"
+    restart: always
+    build:
+      context: ./
+      dockerfile: Dockerfile 
+    command: celery -A api beat -l INFO --loglevel=debug --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - ./:/code
+    depends_on:
+      - web2
+      - redis
+    env_file:
+      - ./.env
+
+  locust:
+    image: locustio/locust
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./locust:/locust
+    command: -f /locust/locustfile.py -H http://web:8000
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+  backend_redis:

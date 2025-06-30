@@ -1,0 +1,18 @@
+.vercel
+*.log
+*.pyc
+.env
+__pycache__
+db.sqlite3
+media
+staticfiles_build/*
+staticfiles/*
+
+# Environments 
+.env 
+.venv 
+env/ 
+venv/ 
+ENV/ 
+env.bak/ 
+venv.bak/ 
