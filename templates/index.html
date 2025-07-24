@@ -1,0 +1,31 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wild Road Nomads</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+    
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+
+<body>
+    <nav>
+        <ul>
+            <li><a href="https://www.wildroadnomads.co.ke/">Home</a></li>
+            <li>About</li>
+            <li><a href="/admin">Admin</a></li>
+            <li>Contact</li>
+            <li class="slide"></li>
+        </ul>
+    </nav>
+    <section>
+        <div class="title"><span>Wild Road Nomads</span><span>Live Free.<a target="_blanck"
+                    href="https://www.wildroadnomads.co.ke/">Roam Wild.</a></span></div>
+    </section>
+    <script src="{% static 'js/script.js' %}"></script>
+</body>
+
+</html>
